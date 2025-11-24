@@ -14,6 +14,7 @@ class WebRTCManager {
         this.username = null;
         this.isVideoEnabled = true;
         this.isAudioEnabled = true;
+        this.isCallActive = false;
     }
 
     /**
@@ -114,6 +115,16 @@ class WebRTCManager {
         }
     }
 
+    async ensureLocalStream(autoShowPanel = false) {
+        if (this.localStream) {
+            return;
+        }
+        if (autoShowPanel) {
+            this.showVideoPanel();
+        }
+        await this.getUserMedia();
+    }
+
     /**
      * 创建与另一个用户的PeerConnection
      */
@@ -122,6 +133,8 @@ class WebRTCManager {
             console.log(`与用户 ${userId} 的连接已存在`);
             return;
         }
+
+        await this.ensureLocalStream();
 
         const configuration = {
             iceServers: [
@@ -186,6 +199,9 @@ class WebRTCManager {
      * 处理收到的offer
      */
     async handleOffer(offer, fromUserId) {
+        await this.ensureLocalStream(true);
+        this.showVideoPanel();
+
         let peerConnection = this.peers.get(fromUserId);
         
         if (!peerConnection) {
@@ -314,6 +330,13 @@ class WebRTCManager {
         }
     }
 
+    showVideoPanel() {
+        const panel = document.getElementById('videoCallPanel');
+        if (panel && panel.style.display === 'none') {
+            panel.style.display = 'block';
+        }
+    }
+
     /**
      * 开始视频通话
      */
@@ -323,8 +346,9 @@ class WebRTCManager {
             return;
         }
 
-        // 获取本地媒体流
-        await this.getUserMedia();
+        this.showVideoPanel();
+        await this.ensureLocalStream();
+        this.isCallActive = true;
 
         // 获取在线用户并建立连接
         if (chatManager && chatManager.onlineUsers) {
@@ -357,6 +381,7 @@ class WebRTCManager {
         this.peers.clear();
         this.localStream = null;
         this.localVideoElement = null;
+        this.isCallActive = false;
     }
 
     /**
