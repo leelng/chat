@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
 
-app = Flask(__name__, static_folder='static', static_url_path='/static')
+app = Flask(__name__, static_folder='static', static_url_path='')
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
 
 # 初始化SocketIO，支持CORS
@@ -35,7 +35,7 @@ pending_friends = {}  # 待处理的好友请求 {user_id: set(requesting_ids)}
 def index():
     """主页面"""
     try:
-        return app.send_static_file('index.html')
+        return send_from_directory(app.static_folder, 'index.html')
     except Exception as e:
         logger.error(f'加载 index.html 失败: {e}')
         return f'<h1>错误</h1><p>无法加载页面: {str(e)}</p><p>路径: {STATIC_DIR}</p>', 500
