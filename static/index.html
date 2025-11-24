@@ -78,9 +78,11 @@
                 
                 <div class="chat-input-area">
                     <div class="input-toolbar">
-                        <button class="btn-icon" onclick="toggleEmojiPicker()" title="表情">😊</button>
+                        <button class="btn-icon" onclick="openFilePicker()" title="上传文件">📎</button>
+                        <button class="btn-icon" id="emojiToggleBtn" onclick="toggleEmojiPicker()" title="表情">😊</button>
                         <button class="btn-icon" onclick="toggleVoiceRecord()" id="voiceBtn" title="语音消息">🎤</button>
                     </div>
+                    <input type="file" id="fileInput" style="display:none" multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar,.7z,.txt">
                     <div class="emoji-picker" id="emojiPicker" style="display: none;"></div>
                     <div class="input-wrapper">
                         <input type="text" id="messageInput" placeholder="输入消息..." onkeypress="handleKeyPress(event)">

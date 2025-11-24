@@ -384,6 +384,53 @@ body {
     color: #999;
 }
 
+.message-media {
+    background: white;
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.message-media.image img,
+.message-media.video video {
+    width: 100%;
+    border-radius: 10px;
+    max-height: 320px;
+    object-fit: cover;
+}
+
+.media-caption {
+    margin-top: 6px;
+    font-size: 13px;
+    color: #666;
+}
+
+.message-file {
+    background: white;
+    padding: 10px 15px;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.message-file a {
+    color: #667eea;
+    font-weight: 600;
+    text-decoration: none;
+    word-break: break-all;
+}
+
+.message-file a:hover {
+    text-decoration: underline;
+}
+
+.file-size {
+    font-size: 12px;
+    color: #999;
+}
+
 /* 输入区域 */
 .chat-input-area {
     border-top: 1px solid #e0e0e0;

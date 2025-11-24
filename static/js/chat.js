@@ -122,14 +122,15 @@ class ChatManager {
     /**
      * 发送消息
      */
-    sendMessage(message, type = 'text') {
+    sendMessage(message, type = 'text', metadata = null) {
         if (!message && type === 'text') return;
         
         const messageData = {
             room_id: this.roomId,
             message: message,
             type: type,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            metadata: metadata
         };
         
         this.socket.emit('send-message', messageData);
@@ -152,14 +153,43 @@ class ChatManager {
             minute: '2-digit' 
         });
         
+        const metadata = data.metadata || {};
         let messageContent = '';
+        const escapedMessage = this.escapeHtml(data.message || '');
+        const escapedUrl = this.escapeAttribute(data.message || '');
+        const displayName = this.escapeHtml(metadata.original_name || '');
+
         if (data.type === 'text' || data.type === 'emoji') {
-            messageContent = `<div class="message-text">${this.escapeHtml(data.message)}</div>`;
+            messageContent = `<div class="message-text">${escapedMessage}</div>`;
         } else if (data.type === 'voice') {
             messageContent = `
                 <div class="voice-message">
-                    <audio controls src="${data.message}"></audio>
-                    <span class="voice-duration">${data.duration || ''}</span>
+                    <audio controls src="${escapedUrl}"></audio>
+                    <span class="voice-duration">${metadata.duration || ''}</span>
+                </div>
+            `;
+        } else if (data.type === 'image') {
+            messageContent = `
+                <div class="message-media image">
+                    <img src="${escapedUrl}" alt="${displayName || '图片'}" loading="lazy">
+                    ${displayName ? `<p class="media-caption">${displayName}</p>` : ''}
+                </div>
+            `;
+        } else if (data.type === 'video') {
+            messageContent = `
+                <div class="message-media video">
+                    <video controls src="${escapedUrl}"></video>
+                    ${displayName ? `<p class="media-caption">${displayName}</p>` : ''}
+                </div>
+            `;
+        } else if (data.type === 'file') {
+            const sizeText = metadata.size ? this.formatFileSize(metadata.size) : '';
+            messageContent = `
+                <div class="message-file">
+                    <a href="${escapedUrl}" target="_blank" rel="noopener" download="${displayName || 'download'}">
+                        📎 ${displayName || '文件'}
+                    </a>
+                    ${sizeText ? `<span class="file-size">${sizeText}</span>` : ''}
                 </div>
             `;
         }
@@ -326,6 +356,23 @@ class ChatManager {
         return div.innerHTML;
     }
 
+    escapeAttribute(text) {
+        if (!text) return '';
+        return this.escapeHtml(text).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    formatFileSize(size) {
+        if (!size && size !== 0) return '';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        let index = 0;
+        let value = size;
+        while (value >= 1024 && index < units.length - 1) {
+            value /= 1024;
+            index += 1;
+        }
+        return `${value.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+    }
+
     /**
      * 离开房间
      */
@@ -407,25 +454,32 @@ function handleKeyPress(event) {
  */
 function toggleEmojiPicker() {
     const picker = document.getElementById('emojiPicker');
-    if (picker.style.display === 'none') {
+    const isHidden = picker.style.display === 'none' || picker.style.display === '';
+
+    if (isHidden) {
         // 初始化表情选择器
-        if (picker.innerHTML === '') {
+        if (!picker.dataset.initialized) {
             emojis.forEach(emoji => {
                 const btn = document.createElement('button');
+                btn.type = 'button';
                 btn.className = 'emoji-btn';
                 btn.textContent = emoji;
-                btn.onclick = () => {
+                btn.addEventListener('click', () => {
                     const input = document.getElementById('messageInput');
                     input.value += emoji;
                     picker.style.display = 'none';
+                    picker.removeAttribute('data-open');
                     input.focus();
-                };
+                });
                 picker.appendChild(btn);
             });
+            picker.dataset.initialized = 'true';
         }
         picker.style.display = 'block';
+        picker.setAttribute('data-open', 'true');
     } else {
         picker.style.display = 'none';
+        picker.removeAttribute('data-open');
     }
 }
 
@@ -434,6 +488,80 @@ function toggleEmojiPicker() {
  */
 function toggleVoiceRecord() {
     chatManager.toggleVoiceRecord();
+}
+
+/**
+ * 打开文件选择框
+ */
+function openFilePicker() {
+    const input = document.getElementById('fileInput');
+    if (!chatManager.roomId) {
+        alert('请先加入聊天室');
+        return;
+    }
+    input.click();
+}
+
+/**
+ * 处理文件选择
+ */
+function handleFileSelection(event) {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (!files.length) return;
+    files.forEach(file => uploadSingleFile(file));
+}
+
+/**
+ * 上传单个文件
+ */
+async function uploadSingleFile(file) {
+    if (!chatManager.roomId) {
+        alert('请先加入聊天室');
+        return;
+    }
+
+    const maxSize = 50 * 1024 * 1024;
+    if (file.size > maxSize) {
+        chatManager.addSystemMessage(`文件过大：${file.name}`);
+        return;
+    }
+
+    chatManager.addSystemMessage(`正在上传：${file.name}`);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('room_id', chatManager.roomId);
+
+    try {
+        const response = await fetch('/upload', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.message || '上传失败');
+        }
+        const messageType = determineMessageType(result.content_type, file);
+        chatManager.sendMessage(result.url, messageType, {
+            original_name: result.original_name || file.name,
+            size: result.size || file.size,
+            content_type: result.content_type
+        });
+    } catch (error) {
+        console.error('上传失败:', error);
+        chatManager.addSystemMessage(`上传失败：${file.name}（${error.message}）`);
+    }
+}
+
+/**
+ * 判断消息类型
+ */
+function determineMessageType(contentType = '', file) {
+    const type = contentType || file.type || '';
+    if (type.startsWith('image/')) return 'image';
+    if (type.startsWith('video/')) return 'video';
+    if (type.startsWith('audio/')) return 'voice';
+    return 'file';
 }
 
 /**
@@ -531,12 +659,17 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('friendUsername').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') addFriend();
     });
+
+    document.getElementById('fileInput').addEventListener('change', handleFileSelection);
     
     // 点击外部关闭表情选择器
     document.addEventListener('click', (e) => {
         const picker = document.getElementById('emojiPicker');
-        if (!picker.contains(e.target) && e.target.onclick !== toggleEmojiPicker) {
+        const toggleBtn = document.getElementById('emojiToggleBtn');
+        if (!picker || picker.style.display === 'none') return;
+        if (!picker.contains(e.target) && !toggleBtn.contains(e.target)) {
             picker.style.display = 'none';
+            picker.removeAttribute('data-open');
         }
     });
 });

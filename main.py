@@ -5,10 +5,12 @@
 使用Flask和WebSocket实现多人加密实时通话的信令服务器
 """
 
-from flask import Flask, render_template_string, send_from_directory, request, send_file
+from flask import Flask, render_template_string, send_from_directory, request, jsonify
 from flask_socketio import SocketIO, emit, join_room, leave_room
+from werkzeug.utils import secure_filename
 import os
 import logging
+import uuid
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -17,9 +19,21 @@ logger = logging.getLogger(__name__)
 # 获取项目根目录
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+ALLOWED_EXTENSIONS = {
+    'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg',
+    'mp4', 'webm', 'ogg', 'mov',
+    'mp3', 'wav', 'm4a',
+    'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx',
+    'txt', 'zip', 'rar', '7z'
+}
 
 app = Flask(__name__, static_folder='static', static_url_path='')
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB
 
 # 初始化SocketIO，支持CORS
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
@@ -39,6 +53,46 @@ def index():
     except Exception as e:
         logger.error(f'加载 index.html 失败: {e}')
         return f'<h1>错误</h1><p>无法加载页面: {str(e)}</p><p>路径: {STATIC_DIR}</p>', 500
+
+
+def allowed_file(filename: str) -> bool:
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    """处理文件上传"""
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'message': '未找到文件'}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'success': False, 'message': '文件名为空'}), 400
+
+    if not allowed_file(file.filename):
+        return jsonify({'success': False, 'message': '不支持的文件类型'}), 400
+
+    filename = secure_filename(file.filename)
+    ext = filename.rsplit('.', 1)[1].lower()
+    unique_name = f"{uuid.uuid4().hex}.{ext}"
+    save_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_name)
+    file.save(save_path)
+
+    file_url = f"/uploads/{unique_name}"
+    file_info = {
+        'success': True,
+        'url': file_url,
+        'original_name': filename,
+        'size': os.path.getsize(save_path),
+        'content_type': file.mimetype or ''
+    }
+    return jsonify(file_info)
+
+
+@app.route('/uploads/<path:filename>')
+def serve_uploaded_file(filename):
+    """提供上传的文件"""
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 
 @socketio.on('connect')
@@ -166,6 +220,7 @@ def handle_send_message(data):
     room_id = data.get('room_id')
     message = data.get('message')
     message_type = data.get('type', 'text')  # text, emoji, voice
+    metadata = data.get('metadata')
     
     if request.sid not in users:
         emit('error', {'message': '未加入房间'})
@@ -180,7 +235,8 @@ def handle_send_message(data):
         'username': username,
         'message': message,
         'type': message_type,
-        'timestamp': data.get('timestamp')
+        'timestamp': data.get('timestamp'),
+        'metadata': metadata
     }, room=room_id)
 
 
