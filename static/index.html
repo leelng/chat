@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>加密聊天室</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 登录界面 -->
+        <div class="setup-panel" id="setupPanel">
+            <header>
+                <h1>🔒 加密聊天室</h1>
+                <p class="subtitle">端到端加密的实时聊天与视频通话</p>
+            </header>
+            <div class="login-form">
+                <h2>加入聊天室</h2>
+                <div class="input-group">
+                    <label for="roomId">房间ID:</label>
+                    <input type="text" id="roomId" placeholder="输入或创建房间ID" value="">
+                    <button onclick="generateRoomId()">生成随机ID</button>
+                </div>
+                <div class="input-group">
+                    <label for="username">您的昵称:</label>
+                    <input type="text" id="username" placeholder="输入您的昵称" value="">
+                </div>
+                <button class="btn-primary" onclick="joinRoom()">加入聊天室</button>
+            </div>
+        </div>
+        
+        <!-- 主聊天界面 -->
+        <div class="chat-container" id="chatContainer" style="display: none;">
+            <div class="chat-sidebar">
+                <div class="sidebar-header">
+                    <h3>聊天室</h3>
+                    <button class="btn-icon" onclick="toggleSidebar()" title="收起侧边栏">☰</button>
+                </div>
+                
+                <div class="room-info">
+                    <p>房间: <span id="currentRoomId"></span></p>
+                    <p>在线: <span id="userCount">1</span>人</p>
+                    <p class="encryption-status">🔒 端到端加密</p>
+                </div>
+                
+                <div class="sidebar-tabs">
+                    <button class="tab-btn active" onclick="switchTab('online')">在线用户</button>
+                    <button class="tab-btn" onclick="switchTab('friends')">好友</button>
+                </div>
+                
+                <div class="tab-content" id="onlineTab">
+                    <div class="user-list" id="onlineUsersList"></div>
+                </div>
+                
+                <div class="tab-content" id="friendsTab" style="display: none;">
+                    <div class="add-friend-section">
+                        <input type="text" id="friendUsername" placeholder="输入用户名添加好友">
+                        <button class="btn-small" onclick="addFriend()">添加</button>
+                    </div>
+                    <div class="user-list" id="friendsList"></div>
+                </div>
+                
+                <div class="sidebar-footer">
+                    <button class="btn-control" onclick="leaveRoom()">离开房间</button>
+                </div>
+            </div>
+            
+            <div class="chat-main">
+                <div class="chat-header">
+                    <h2>聊天室</h2>
+                    <div class="header-actions">
+                        <button class="btn-icon" onclick="toggleVideoCall()" id="videoCallBtn" title="开启视频通话">📹</button>
+                        <button class="btn-icon" onclick="toggleSidebar()" id="sidebarToggleBtn" title="显示侧边栏">☰</button>
+                    </div>
+                </div>
+                
+                <div class="chat-messages" id="chatMessages"></div>
+                
+                <div class="chat-input-area">
+                    <div class="input-toolbar">
+                        <button class="btn-icon" onclick="toggleEmojiPicker()" title="表情">😊</button>
+                        <button class="btn-icon" onclick="toggleVoiceRecord()" id="voiceBtn" title="语音消息">🎤</button>
+                    </div>
+                    <div class="emoji-picker" id="emojiPicker" style="display: none;"></div>
+                    <div class="input-wrapper">
+                        <input type="text" id="messageInput" placeholder="输入消息..." onkeypress="handleKeyPress(event)">
+                        <button class="btn-send" onclick="sendMessage()">发送</button>
+                    </div>
+                    <div class="voice-recorder" id="voiceRecorder" style="display: none;">
+                        <div class="recording-indicator">
+                            <span class="recording-dot"></span>
+                            <span>正在录音...</span>
+                            <button class="btn-stop" onclick="stopRecording()">停止</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 视频通话面板（可选） -->
+        <div class="video-call-panel" id="videoCallPanel" style="display: none;">
+            <div class="video-header">
+                <h3>视频通话</h3>
+                <button class="btn-close" onclick="closeVideoCall()">✕</button>
+            </div>
+            <div class="video-container">
+                <div class="video-grid" id="videoGrid"></div>
+            </div>
+            <div class="video-controls">
+                <button class="btn-control" id="toggleVideo" onclick="toggleVideo()">📹 关闭视频</button>
+                <button class="btn-control" id="toggleAudio" onclick="toggleAudio()">🎤 静音</button>
+                <button class="btn-control btn-danger" onclick="closeVideoCall()">结束通话</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="/js/crypto.js"></script>
+    <script src="/js/chat.js"></script>
+    <script src="/js/webrtc.js"></script>
+</body>
+</html>

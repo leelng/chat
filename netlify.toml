@@ -1,0 +1,14 @@
+# ⚠️ 注意：Netlify 不支持 Python 后端和 WebSocket
+# 此应用无法直接部署到 Netlify
+# 请使用 Render、Railway 或其他支持 Python 的平台
+# 详细说明请查看 DEPLOY.md
+
+# 如果你只想部署前端静态文件（需要修改代码以连接外部后端）：
+# [build]
+#   command = "echo 'No build needed'"
+#   publish = "static"
+#
+# [[redirects]]
+#   from = "/*"
+#   to = "/index.html"
+#   status = 200
