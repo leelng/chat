@@ -145,8 +145,11 @@ class ChatManager {
      */
     displayMessage(data) {
         const messagesContainer = document.getElementById('chatMessages');
+        const isOwn = data.user_id === this.userId;
         const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${data.user_id === this.userId ? 'message-own' : 'message-other'}`;
+        messageDiv.className = `message ${isOwn ? 'message-own' : 'message-other'}`;
+        const contentWrapper = document.createElement('div');
+        contentWrapper.className = 'message-content';
         
         const time = new Date(data.timestamp).toLocaleTimeString('zh-CN', { 
             hour: '2-digit', 
@@ -194,14 +197,21 @@ class ChatManager {
             `;
         }
         
-        messageDiv.innerHTML = `
+        contentWrapper.innerHTML = `
             <div class="message-header">
                 <span class="message-username">${this.escapeHtml(data.username)}</span>
                 <span class="message-time">${time}</span>
             </div>
-            ${messageContent}
+            <div class="message-bubble">
+                ${messageContent}
+            </div>
         `;
+
+        const avatar = document.createElement('div');
+        avatar.className = 'message-avatar';
         
+        messageDiv.appendChild(avatar);
+        messageDiv.appendChild(contentWrapper);
         messagesContainer.appendChild(messageDiv);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
