@@ -105,7 +105,7 @@ class WebRTCManager {
             });
 
             // 创建本地视频元素
-            this.localVideoElement = this.createVideoElement('local', this.username || '我', true);
+            this.localVideoElement = this.getOrCreateVideoElement('local', this.username || '我', true);
             this.localVideoElement.querySelector('video').srcObject = this.localStream;
             
             console.log('已获取本地媒体流');
@@ -156,7 +156,7 @@ class WebRTCManager {
         peerConnection.ontrack = (event) => {
             console.log('收到远程流:', userId);
             const remoteStream = event.streams[0];
-            const videoElement = this.createVideoElement(userId, `用户${userId.substring(0, 6)}`, false);
+            const videoElement = this.getOrCreateVideoElement(userId, `用户${userId.substring(0, 6)}`, false);
             videoElement.querySelector('video').srcObject = remoteStream;
         };
 
@@ -254,27 +254,39 @@ class WebRTCManager {
     /**
      * 创建视频元素
      */
-    createVideoElement(userId, label, isLocal) {
+    getOrCreateVideoElement(userId, label, isLocal) {
         const videoGrid = document.getElementById('videoGrid');
-        
-        const videoItem = document.createElement('div');
-        videoItem.className = `video-item ${isLocal ? 'local' : ''}`;
-        videoItem.id = `video-${userId}`;
-        
-        const video = document.createElement('video');
-        video.autoplay = true;
-        video.playsInline = true;
-        video.muted = isLocal; // 本地视频静音以避免回音
-        
-        const videoLabel = document.createElement('div');
-        videoLabel.className = 'video-label';
-        videoLabel.textContent = label;
-        
-        videoItem.appendChild(video);
-        videoItem.appendChild(videoLabel);
-        videoGrid.appendChild(videoItem);
-        
+        let videoItem = document.getElementById(`video-${userId}`);
+        if (!videoItem) {
+            videoItem = document.createElement('div');
+            videoItem.className = `video-item ${isLocal ? 'local' : ''}`;
+            videoItem.id = `video-${userId}`;
+
+            const video = document.createElement('video');
+            video.autoplay = true;
+            video.playsInline = true;
+            video.muted = isLocal; // 本地视频静音以避免回音
+
+            const videoLabel = document.createElement('div');
+            videoLabel.className = 'video-label';
+            videoLabel.textContent = label;
+
+            videoItem.appendChild(video);
+            videoItem.appendChild(videoLabel);
+            videoGrid.appendChild(videoItem);
+        }
         return videoItem;
+    }
+
+    removeVideoElement(userId) {
+        const videoElement = document.getElementById(`video-${userId}`);
+        if (videoElement) {
+            const video = videoElement.querySelector('video');
+            if (video && video.srcObject) {
+                video.srcObject = null;
+            }
+            videoElement.remove();
+        }
     }
 
     /**
@@ -287,10 +299,8 @@ class WebRTCManager {
             this.peers.delete(userId);
         }
 
-        const videoElement = document.getElementById(`video-${userId}`);
-        if (videoElement) {
-            videoElement.remove();
-        }
+        this.removeVideoElement(userId);
+        this.updateVideoPanelVisibility();
     }
 
 
@@ -382,6 +392,7 @@ class WebRTCManager {
         this.localStream = null;
         this.localVideoElement = null;
         this.isCallActive = false;
+        this.hideVideoPanel();
     }
 
     /**
@@ -389,6 +400,22 @@ class WebRTCManager {
      */
     leaveRoom() {
         this.endVideoCall();
+    }
+
+    hideVideoPanel() {
+        const panel = document.getElementById('videoCallPanel');
+        if (panel) {
+            panel.style.display = 'none';
+        }
+    }
+
+    updateVideoPanelVisibility() {
+        const videoGrid = document.getElementById('videoGrid');
+        if (!videoGrid) return;
+        const remainingVideos = videoGrid.querySelectorAll('.video-item').length;
+        if (remainingVideos === 0 && !this.localStream) {
+            this.hideVideoPanel();
+        }
     }
 }
 
